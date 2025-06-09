@@ -1,12 +1,17 @@
-// Fallback untuk Node 18 agar mendukung crypto.subtle
+// ✅ Fallback untuk Node < 19 agar mendukung crypto.subtle
 if (typeof globalThis.crypto === 'undefined') {
     const { webcrypto } = require('crypto');
     globalThis.crypto = webcrypto;
 }
 
+// ✅ Hapus sesi lama agar QR selalu muncul ulang saat start
+const fs = require('fs');
+if (fs.existsSync('./auth_info_baileys')) {
+    fs.rmSync('./auth_info_baileys', { recursive: true, force: true });
+}
+
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino');
-const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
 
@@ -19,6 +24,7 @@ async function startBot() {
         auth: state
     });
 
+    // ✅ Tampilkan QR & simpan ke qr.png
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
@@ -26,29 +32,31 @@ async function startBot() {
             const qrPath = path.join(__dirname, 'qr.png');
             try {
                 await qrcode.toFile(qrPath, qr);
-                console.log("✅ QR Code dibuat: qr.png");
+                console.log("📸 QR code dibuat di:", qrPath);
             } catch (err) {
-                console.error("❌ Gagal buat QR:", err);
+                console.error("❌ Gagal membuat QR:", err);
             }
         }
 
         if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
+            const reason = lastDisconnect?.error?.output?.statusCode;
+            if (reason !== DisconnectReason.loggedOut) {
                 console.log("🔄 Reconnect...");
                 startBot();
             } else {
-                console.log("❌ Harus scan ulang QR.");
+                console.log("❌ Logout permanen. Scan QR ulang.");
             }
         }
 
         if (connection === 'open') {
-            console.log("✅ Bot aktif!");
+            console.log("✅ Bot sudah aktif dan login!");
         }
     });
 
+    // ✅ Simpan sesi login
     sock.ev.on('creds.update', saveCreds);
 
+    // ✅ Forward semua pesan yang masuk
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message || msg.key.fromMe) return;
