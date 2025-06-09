@@ -4,12 +4,6 @@ if (typeof globalThis.crypto === 'undefined') {
     globalThis.crypto = webcrypto;
 }
 
-// ✅ Hapus sesi lama agar QR selalu muncul ulang saat start
-const fs = require('fs');
-if (fs.existsSync('./auth_info_baileys')) {
-    fs.rmSync('./auth_info_baileys', { recursive: true, force: true });
-}
-
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino');
 const path = require('path');
